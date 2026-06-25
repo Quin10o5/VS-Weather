@@ -156,7 +156,7 @@ export class CloudSystem implements WeatherSystem {
     const intensity = Math.max(0.1, this.settings.intensity);
     const overrideCount = this.devOverrides.cloudCount;
     this.baseCloudCount =
-      overrideCount ?? randomInt(1, Math.min(8, Math.floor(3 + intensity * 5)));
+      overrideCount ?? randomInt(2, Math.min(16, Math.floor(6 + intensity * 10)));
     if (overrideCount != null) {
       this.baseCloudCount = Math.max(1, overrideCount);
     }

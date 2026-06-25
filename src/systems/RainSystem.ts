@@ -212,7 +212,7 @@ export class RainSystem implements WeatherSystem {
     const density = this.devOverrides.rainDensity ?? 1;
     this.fullDropCount = Math.min(
       MAX_DROPS,
-      Math.floor(randomRange(100, 300) * this.settings.intensity * density)
+      Math.floor(randomRange(50, 150) * this.settings.intensity * density)
     );
   }
 
@@ -248,7 +248,7 @@ export class RainSystem implements WeatherSystem {
   }
 
   private resetDrop(drop: RainDrop): void {
-    drop.velocity = randomRange(280, 520);
+    drop.velocity = randomRange(240, 450);
     drop.length = PIXEL * randomRange(2, 5);
 
     const cloud = pickRandomCloud(this.clouds);

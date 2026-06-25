@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { WeatherManager } from './WeatherManager';
 import { WeatherWebviewProvider } from './WeatherWebviewProvider';
-import { openExtensionSettings, readSettings, setUiMode } from './settings';
+import { applyPanelPosition, openExtensionSettings, readSettings, setUiMode } from './settings';
 import { WeatherState } from './shared/types';
 
 let weatherManager: WeatherManager | undefined;
@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     weatherManager,
     vscode.commands.registerCommand('weather.show', async () => {
-      await vscode.commands.executeCommand('workbench.action.positionPanelTop');
+      await applyPanelPosition(readSettings().panelPosition);
       await vscode.commands.executeCommand('workbench.view.extension.weather');
     }),
     vscode.commands.registerCommand('weather.openSettings', () => {
@@ -45,9 +45,19 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('weather.dev.inchworm', () => {
       webviewProvider?.postMessage({ type: 'triggerInchworm' });
     }),
+    vscode.commands.registerCommand('weather.dev.fireflies', () => {
+      webviewProvider?.postMessage({ type: 'triggerFireflies' });
+    }),
+    vscode.commands.registerCommand('weather.dev.rainbow', () => {
+      webviewProvider?.postMessage({ type: 'triggerRainbow' });
+    }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('weather')) {
-        weatherManager?.onSettingsChanged(readSettings());
+        const settings = readSettings();
+        weatherManager?.onSettingsChanged(settings);
+        if (e.affectsConfiguration('weather.panelPosition')) {
+          void applyPanelPosition(settings.panelPosition);
+        }
       }
     })
   );
@@ -70,7 +80,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const settings = readSettings();
   if (settings.enabled && settings.showOnStartup) {
     setTimeout(async () => {
-      await vscode.commands.executeCommand('workbench.action.positionPanelTop');
+      await applyPanelPosition(settings.panelPosition);
       await vscode.commands.executeCommand('workbench.view.extension.weather');
     }, 1500);
   }

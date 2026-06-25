@@ -11,9 +11,19 @@ const CELESTIAL_ALPHA: Record<WeatherState, number> = {
   snow: 0.55,
 };
 
-/** Cloud density factor per weather (matches sunny sparse vs stormy cover). */
+/** Outer sun halo — full in sun, faint in cloud, off in rain/storms. */
+export const SUN_GLOW_PRESENCE: Record<WeatherState, number> = {
+  sunny: 1,
+  cloudy: 0.42,
+  rain: 0,
+  thunderstorm: 0,
+  fog: 0,
+  snow: 0,
+};
+
+/** Cloud density factor per weather (cloudy = 3× sunny). */
 export const CLOUD_PRESENCE: Record<WeatherState, number> = {
-  sunny: 0.35,
+  sunny: 1 / 3,
   cloudy: 1,
   rain: 0.85,
   thunderstorm: 1,
@@ -36,6 +46,16 @@ export const SNOW_PRESENCE: Record<WeatherState, number> = {
   rain: 0,
   thunderstorm: 0,
   fog: 0,
+  snow: 1,
+};
+
+/** Mountain snow-cap opacity during winter — always visible, stronger in colder weather. */
+export const MOUNTAIN_SNOW_PRESENCE: Record<WeatherState, number> = {
+  sunny: 0.32,
+  cloudy: 0.58,
+  rain: 0.75,
+  thunderstorm: 0.7,
+  fog: 0.48,
   snow: 1,
 };
 
@@ -77,6 +97,14 @@ export function blendSnowPresence(from: WeatherState, to: WeatherState, t: numbe
   return blendScalar(presenceFor(SNOW_PRESENCE, from), presenceFor(SNOW_PRESENCE, to), t);
 }
 
+export function blendMountainSnowPresence(from: WeatherState, to: WeatherState, t: number): number {
+  return blendScalar(
+    presenceFor(MOUNTAIN_SNOW_PRESENCE, from),
+    presenceFor(MOUNTAIN_SNOW_PRESENCE, to),
+    t
+  );
+}
+
 export function blendLightningPresence(from: WeatherState, to: WeatherState, t: number): number {
   return blendScalar(
     presenceFor(LIGHTNING_PRESENCE, from),
@@ -87,4 +115,29 @@ export function blendLightningPresence(from: WeatherState, to: WeatherState, t: 
 
 export function blendCelestialAlpha(from: WeatherState, to: WeatherState, t: number): number {
   return blendScalar(presenceFor(CELESTIAL_ALPHA, from), presenceFor(CELESTIAL_ALPHA, to), t);
+}
+
+export function blendSunGlowPresence(from: WeatherState, to: WeatherState, t: number): number {
+  return blendScalar(presenceFor(SUN_GLOW_PRESENCE, from), presenceFor(SUN_GLOW_PRESENCE, to), t);
+}
+
+export function shouldShowRainbow(
+  fromDisplay: WeatherState,
+  toDisplay: WeatherState,
+  fromRaw?: WeatherState,
+  toRaw?: WeatherState,
+  snowSeason = false
+): boolean {
+  if (snowSeason) {
+    return false;
+  }
+  const toSunny = toDisplay === 'sunny' || toRaw === 'sunny';
+  if (!toSunny) {
+    return false;
+  }
+  const wetFromRaw =
+    fromRaw === 'rain' || fromRaw === 'thunderstorm' || fromRaw === 'snow';
+  const wetFromDisplay =
+    fromDisplay === 'rain' || fromDisplay === 'thunderstorm' || fromDisplay === 'snow';
+  return wetFromRaw || wetFromDisplay;
 }

@@ -38,6 +38,14 @@ export class SceneDevBridge implements DevControlsBridge {
     this.renderer.getInchwormSystem().triggerInchworm();
   }
 
+  triggerFireflies(): void {
+    this.renderer.getFireflySystem().triggerFireflies();
+  }
+
+  triggerRainbow(): void {
+    this.renderer.getRainbowSystem().triggerRainbow();
+  }
+
   setShowFps(visible: boolean): void {
     this.perf.visible = visible;
   }

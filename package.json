@@ -2,7 +2,7 @@
   "name": "pixel-weather",
   "displayName": "Pixel Weather",
   "description": "Pixel-art clouds, rain, and thunder in a strip above your editor — matches your theme background.",
-  "version": "0.2.5",
+  "version": "0.7.0",
   "publisher": "quin10o5",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -84,6 +84,22 @@
           "description": "Open the weather panel automatically when Cursor starts.",
           "markdownDescription": "Open the weather panel automatically when Cursor starts."
         },
+        "weather.panelPosition": {
+          "type": "string",
+          "enum": [
+            "top",
+            "bottom"
+          ],
+          "default": "top",
+          "order": 3,
+          "scope": "application",
+          "enumDescriptions": [
+            "Place the panel area above the editor.",
+            "Place the panel area below the editor."
+          ],
+          "description": "Where the weather panel sits in the editor panel area.",
+          "markdownDescription": "Whether the weather panel appears at the **top** or **bottom** of the editor panel area."
+        },
         "weather.intensity": {
           "type": "number",
           "default": 1,
@@ -118,6 +134,14 @@
           "description": "Occasionally show bird flocks in clear or mild weather.",
           "markdownDescription": "Occasionally show bird flocks during sunny, cloudy, or rainy weather."
         },
+        "weather.mountains": {
+          "type": "boolean",
+          "default": true,
+          "order": 14,
+          "scope": "application",
+          "description": "Show pixel-art mountains along the horizon.",
+          "markdownDescription": "Show pixel-art mountains along the bottom of the weather strip."
+        },
         "weather.snowSeason": {
           "type": "string",
           "enum": [
@@ -126,7 +150,7 @@
             "never"
           ],
           "default": "auto",
-          "order": 14,
+          "order": 15,
           "scope": "application",
           "enumDescriptions": [
             "Snow appears in December, January, and February.",
@@ -175,7 +199,7 @@
           "scope": "application",
           "enumDescriptions": [
             "Simple in-panel settings for everyday use.",
-            "Full developer controls with live weather overrides and testing tools."
+            "In-panel developer controls with live weather overrides and testing tools."
           ],
           "description": "In-panel settings menu mode.",
           "markdownDescription": "Controls what the ☰ menu in the weather panel shows.\n\nUse **Pixel Weather: Use Normal Settings Mode** or **Pixel Weather: Use Developer Mode** to switch quickly."
@@ -244,6 +268,16 @@
       {
         "command": "weather.dev.inchworm",
         "title": "Pixel Weather: Spawn Inchworm",
+        "category": "Pixel Weather"
+      },
+      {
+        "command": "weather.dev.fireflies",
+        "title": "Pixel Weather: Spawn Fireflies",
+        "category": "Pixel Weather"
+      },
+      {
+        "command": "weather.dev.rainbow",
+        "title": "Pixel Weather: Spawn Rainbow",
         "category": "Pixel Weather"
       }
     ]

@@ -17,11 +17,15 @@ export type WeatherUiMode = 'normal' | 'dev';
 
 export type SnowSeasonMode = 'auto' | 'always' | 'never';
 
+export type PanelPosition = 'top' | 'bottom';
+
 export interface WeatherSettings {
   enabled: boolean;
   showOnStartup: boolean;
+  panelPosition: PanelPosition;
   intensity: number;
   birds: boolean;
+  mountains: boolean;
   dayNight: boolean;
   lightning: boolean;
   snowSeason: SnowSeasonMode;
@@ -58,6 +62,8 @@ export interface HostMessage {
     | 'triggerLightning'
     | 'triggerBirds'
     | 'triggerInchworm'
+    | 'triggerFireflies'
+    | 'triggerRainbow'
     | 'showFps'
     | 'toggleSettingsMenu';
   weather?: WeatherState;
@@ -193,8 +199,10 @@ export function pickWeightedWeather(snowEnabled: boolean): WeatherState {
 export const DEFAULT_SETTINGS: WeatherSettings = {
   enabled: true,
   showOnStartup: true,
+  panelPosition: 'top',
   intensity: 1.0,
   birds: true,
+  mountains: true,
   dayNight: true,
   lightning: true,
   snowSeason: 'auto',
@@ -209,7 +217,7 @@ export const DEFAULT_DEV_OVERRIDES: DevOverrides = {
   windStrength: 0.5,
   windDirection: 1,
   rainDensity: 1,
-  cloudCount: 4,
+  cloudCount: 8,
   cloudOpacity: 1,
   timeOverride: 12,
   useTimeOverride: false,

@@ -30,11 +30,6 @@ export class SettingsMenu {
       this.toggleMenu();
     });
 
-    document.getElementById('settings-menu-close')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.setMenuOpen(false);
-    });
-
     this.menu?.addEventListener('click', (e) => e.stopPropagation());
 
     document.addEventListener('keydown', (e) => {

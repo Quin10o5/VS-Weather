@@ -26,6 +26,8 @@ export class SunSystem implements WeatherSystem {
   private stars: StarPoint[] = [];
   private settings: WeatherSettings = { ...DEFAULT_SETTINGS };
   private celestialAlpha = 1;
+  private sunGlowAlpha = 1;
+  private animTime = 0;
 
   setDevOverrides(overrides: DevOverrides): void {
     this.devOverrides = { ...this.devOverrides, ...overrides };
@@ -33,6 +35,10 @@ export class SunSystem implements WeatherSystem {
 
   setEffectStrength(strength: number): void {
     this.celestialAlpha = Math.max(0, Math.min(1, strength));
+  }
+
+  setSunGlowStrength(strength: number): void {
+    this.sunGlowAlpha = Math.max(0, Math.min(1, strength));
   }
 
   setDimensions(width: number, height: number): void {
@@ -90,7 +96,24 @@ export class SunSystem implements WeatherSystem {
 
   onDayPhaseChange(_phase: DayPhase): void {}
 
-  update(_dt: number, _time: number): void {}
+  update(_dt: number, time: number): void {
+    this.animTime = time;
+  }
+
+  /** Slow rhythmic breathe — stronger in clear sky, nearly flat in storms. */
+  private pulseFactor(weatherAlpha: number, isSun: boolean): number {
+    const t = this.animTime * 0.001;
+    const periodSec = isSun ? 4 : 5.5;
+    const phase = isSun ? 0 : 1.1;
+    const maxAmp = isSun ? 0.095 : 0.078;
+    const amp = maxAmp * weatherAlpha;
+
+    const wave = Math.sin((t / periodSec) * Math.PI * 2 + phase);
+    const breath = wave * 0.5 + 0.5;
+    const eased = breath * breath * (3 - 2 * breath);
+    const swing = (eased - 0.5) * 2;
+    return 1 + swing * amp;
+  }
 
   draw(ctx: CanvasRenderingContext2D, width: number, height: number): void {
     if (!this.settings.enabled || !this.settings.dayNight) {
@@ -133,7 +156,7 @@ export class SunSystem implements WeatherSystem {
     }
 
     if (day) {
-      this.drawSun(ctx, bodyX, bodyY, baseIntensity, weatherAlpha);
+      this.drawSun(ctx, bodyX, bodyY, baseIntensity, weatherAlpha, this.sunGlowAlpha);
     } else {
       this.drawMoon(ctx, bodyX, bodyY, baseIntensity, weatherAlpha);
     }
@@ -179,18 +202,67 @@ export class SunSystem implements WeatherSystem {
     sunX: number,
     sunY: number,
     baseIntensity: number,
-    weatherAlpha: number
+    weatherAlpha: number,
+    glowStrength: number
   ): void {
     const coreBlocks = 7;
     const glowColor = '#ffe566';
     const coreColor = '#ffd028';
+    const pulse = this.pulseFactor(weatherAlpha, true);
+    const glowPulse = 1 + (pulse - 1) * 1.55;
+    const corePulse = 1 + (pulse - 1) * 0.5;
 
     ctx.save();
     ctx.globalAlpha = weatherAlpha;
-    fillBlock(ctx, sunX - PIXEL * 2, sunY - PIXEL * 2, coreBlocks + 3, coreBlocks + 3, glowColor, 0.3 * baseIntensity);
-    fillBlock(ctx, sunX - PIXEL, sunY - PIXEL, coreBlocks + 1, coreBlocks + 1, glowColor, 0.45 * baseIntensity);
-    fillBlock(ctx, sunX, sunY, coreBlocks, coreBlocks, coreColor, 0.95 * baseIntensity);
+    this.drawSunHalo(ctx, sunX, sunY, coreBlocks, baseIntensity, glowStrength, glowPulse);
+    fillBlock(ctx, sunX - PIXEL * 2, sunY - PIXEL * 2, coreBlocks + 3, coreBlocks + 3, glowColor, 0.3 * baseIntensity * glowPulse);
+    fillBlock(ctx, sunX - PIXEL, sunY - PIXEL, coreBlocks + 1, coreBlocks + 1, glowColor, 0.45 * baseIntensity * glowPulse);
+    fillBlock(ctx, sunX, sunY, coreBlocks, coreBlocks, coreColor, 0.95 * baseIntensity * corePulse);
     ctx.restore();
+  }
+
+  private drawSunHalo(
+    ctx: CanvasRenderingContext2D,
+    sunX: number,
+    sunY: number,
+    coreBlocks: number,
+    baseIntensity: number,
+    glowStrength: number,
+    glowPulse: number
+  ): void {
+    if (glowStrength <= 0.01) {
+      return;
+    }
+
+    const strength = glowStrength * baseIntensity * glowPulse;
+    const color = '#ffe878';
+
+    for (let ring = 4; ring >= 2; ring--) {
+      const size = coreBlocks + ring * 2;
+      const t = (ring - 2) / 2;
+      const alpha = (0.1 + t * 0.22) * strength;
+      const x = sunX - ring * PIXEL;
+      const y = sunY - ring * PIXEL;
+      this.drawPixelRing(ctx, x, y, size, color, alpha);
+    }
+  }
+
+  /** One-block-thick square ring in pixel blocks. */
+  private drawPixelRing(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    blocks: number,
+    color: string,
+    alpha: number
+  ): void {
+    if (blocks < 3 || alpha <= 0.005) {
+      return;
+    }
+    fillBlock(ctx, x, y, blocks, 1, color, alpha);
+    fillBlock(ctx, x, y + (blocks - 1) * PIXEL, blocks, 1, color, alpha);
+    fillBlock(ctx, x, y + PIXEL, 1, blocks - 2, color, alpha);
+    fillBlock(ctx, x + (blocks - 1) * PIXEL, y + PIXEL, 1, blocks - 2, color, alpha);
   }
 
   private drawMoon(
@@ -204,11 +276,14 @@ export class SunSystem implements WeatherSystem {
     const glowColor = '#c8d0e8';
     const coreColor = '#e8ecf8';
     const shadowColor = '#8890a8';
+    const pulse = this.pulseFactor(weatherAlpha, false);
+    const glowPulse = 1 + (pulse - 1) * 1.45;
+    const corePulse = 1 + (pulse - 1) * 0.45;
 
     ctx.save();
     ctx.globalAlpha = weatherAlpha;
-    fillBlock(ctx, moonX - PIXEL, moonY - PIXEL, coreBlocks + 2, coreBlocks + 2, glowColor, 0.25 * baseIntensity);
-    fillBlock(ctx, moonX, moonY, coreBlocks, coreBlocks, coreColor, 0.9 * baseIntensity);
+    fillBlock(ctx, moonX - PIXEL, moonY - PIXEL, coreBlocks + 2, coreBlocks + 2, glowColor, 0.25 * baseIntensity * glowPulse);
+    fillBlock(ctx, moonX, moonY, coreBlocks, coreBlocks, coreColor, 0.9 * baseIntensity * corePulse);
     fillBlock(ctx, moonX + PIXEL * 2, moonY - PIXEL, coreBlocks, coreBlocks, shadowColor, 0.85 * baseIntensity);
     fillBlock(ctx, moonX + PIXEL * 3, moonY, coreBlocks - 1, coreBlocks, shadowColor, 0.7 * baseIntensity);
     ctx.restore();

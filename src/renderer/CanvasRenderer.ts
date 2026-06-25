@@ -3,6 +3,7 @@ import {
   DevOverrides,
   DEFAULT_SETTINGS,
   HostMessage,
+  isSnowEnabled,
   mapWeatherForSeason,
   resolveDate,
   WeatherSettings,
@@ -16,15 +17,21 @@ import { RainSystem } from '../systems/RainSystem';
 import { SnowSystem } from '../systems/SnowSystem';
 import { LightningSystem } from '../systems/LightningSystem';
 import { BirdSystem } from '../systems/BirdSystem';
+import { MountainSystem } from '../systems/MountainSystem';
 import { InchwormSystem } from '../systems/InchwormSystem';
+import { FireflySystem } from '../systems/FireflySystem';
+import { RainbowSystem } from '../systems/RainbowSystem';
 import { configurePixelCanvas } from './pixelArt';
 import {
   WEATHER_TRANSITION_SEC,
   blendCelestialAlpha,
+  blendSunGlowPresence,
   blendCloudPresence,
   blendLightningPresence,
+  blendMountainSnowPresence,
   blendRainPresence,
   blendSnowPresence,
+  shouldShowRainbow,
 } from '../shared/weatherTransition';
 
 export class CanvasRenderer {
@@ -36,7 +43,10 @@ export class CanvasRenderer {
   private readonly snowSystem = new SnowSystem();
   private readonly lightningSystem = new LightningSystem();
   private readonly birdSystem = new BirdSystem();
+  private readonly mountainSystem = new MountainSystem();
   private readonly inchwormSystem = new InchwormSystem();
+  private readonly rainbowSystem = new RainbowSystem();
+  private readonly fireflySystem = new FireflySystem();
   private systems: WeatherSystem[];
   private settings: WeatherSettings = { ...DEFAULT_SETTINGS };
   private devOverrides: DevOverrides = {};
@@ -64,12 +74,15 @@ export class CanvasRenderer {
 
     this.systems = [
       this.sunSystem,
+      this.mountainSystem,
       this.rainSystem,
       this.snowSystem,
       this.cloudSystem,
       this.lightningSystem,
       this.birdSystem,
       this.inchwormSystem,
+      this.fireflySystem,
+      this.rainbowSystem,
     ];
     this.lightningSystem.setCloudProvider(this.cloudSystem);
   }
@@ -80,6 +93,14 @@ export class CanvasRenderer {
 
   getInchwormSystem(): InchwormSystem {
     return this.inchwormSystem;
+  }
+
+  getFireflySystem(): FireflySystem {
+    return this.fireflySystem;
+  }
+
+  getRainbowSystem(): RainbowSystem {
+    return this.rainbowSystem;
   }
 
   handleClick(x: number, y: number): boolean {
@@ -145,6 +166,12 @@ export class CanvasRenderer {
       case 'triggerInchworm':
         this.inchwormSystem.triggerInchworm();
         break;
+      case 'triggerFireflies':
+        this.fireflySystem.triggerFireflies();
+        break;
+      case 'triggerRainbow':
+        this.rainbowSystem.triggerRainbow();
+        break;
     }
   }
 
@@ -180,9 +207,27 @@ export class CanvasRenderer {
     this.sunSystem.update(dt, this.time);
     this.rainSystem.update(dt, this.time);
     this.snowSystem.update(dt, this.time);
+    this.mountainSystem.update(dt, this.time);
     this.lightningSystem.update(dt, this.time);
     this.birdSystem.update(dt, this.time);
     this.inchwormSystem.update(dt, this.time);
+    const rainPresence = blendRainPresence(
+      this.transitionFrom,
+      this.transitionTo,
+      this.transitionProgress
+    );
+    const snowPresence = blendSnowPresence(
+      this.transitionFrom,
+      this.transitionTo,
+      this.transitionProgress
+    );
+    this.rainbowSystem.setRainPresence(Math.max(rainPresence, snowPresence));
+    this.rainbowSystem.update(dt, this.time);
+    this.fireflySystem.update(dt, this.time);
+    this.applyMountainSnowTarget();
+    if (this.isSnowSeason()) {
+      this.rainbowSystem.dismiss();
+    }
   }
 
   draw(): void {
@@ -234,9 +279,11 @@ export class CanvasRenderer {
     this.snowSystem.setDevOverrides(this.devOverrides);
     this.lightningSystem.setDevOverrides(this.devOverrides);
     this.sunSystem.setDevOverrides(this.devOverrides);
+    this.fireflySystem.setDevOverrides(this.devOverrides);
   }
 
   private setWeather(state: WeatherState, immediate = false): void {
+    const previousRaw = this.rawWeather;
     this.rawWeather = state;
     const nextDisplay = this.resolveDisplayWeather(state);
     if (immediate) {
@@ -250,13 +297,19 @@ export class CanvasRenderer {
       this.applyTransitionStrengths();
       return;
     }
-    this.beginDisplayTransition(nextDisplay);
+    this.beginDisplayTransition(nextDisplay, previousRaw);
   }
 
-  private beginDisplayTransition(nextDisplay: WeatherState): void {
+  private beginDisplayTransition(nextDisplay: WeatherState, previousRaw?: WeatherState): void {
     if (nextDisplay === this.displayWeather && this.transitionProgress >= 1) {
       return;
     }
+    if (nextDisplay === this.transitionTo && this.transitionProgress < 1) {
+      return;
+    }
+
+    const previousWeather =
+      this.transitionProgress >= 1 ? this.displayWeather : this.transitionFrom;
 
     if (this.transitionProgress >= 1) {
       this.transitionFrom = this.displayWeather;
@@ -267,6 +320,14 @@ export class CanvasRenderer {
     this.transitionTo = nextDisplay;
     this.displayWeather = nextDisplay;
     this.transitionProgress = 0;
+
+    if (this.isSnowSeason()) {
+      this.rainbowSystem.dismiss();
+    } else if (shouldShowRainbow(previousWeather, nextDisplay, previousRaw, this.rawWeather)) {
+      this.rainbowSystem.scheduleRainbow();
+    } else if (nextDisplay !== 'sunny') {
+      this.rainbowSystem.cancelSchedule();
+    }
 
     for (const system of this.systems) {
       system.onWeatherChange(nextDisplay);
@@ -293,6 +354,28 @@ export class CanvasRenderer {
     this.snowSystem.setEffectStrength(blendSnowPresence(from, to, t));
     this.lightningSystem.setEffectStrength(blendLightningPresence(from, to, t));
     this.sunSystem.setEffectStrength(blendCelestialAlpha(from, to, t));
+    this.sunSystem.setSunGlowStrength(blendSunGlowPresence(from, to, t));
+  }
+
+  private isSnowSeason(): boolean {
+    const date = resolveDate(
+      new Date(),
+      this.devOverrides.dateOverrideDayOfYear,
+      this.devOverrides.useDateOverride
+    );
+    return isSnowEnabled(this.settings.snowSeason, date);
+  }
+
+  private applyMountainSnowTarget(): void {
+    const winter = this.isSnowSeason();
+    const target = winter
+      ? blendMountainSnowPresence(
+          this.transitionFrom,
+          this.transitionTo,
+          this.transitionProgress
+        )
+      : 0;
+    this.mountainSystem.setSnowTarget(target);
   }
 
   private applyDisplayWeather(): void {

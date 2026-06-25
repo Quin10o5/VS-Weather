@@ -39,7 +39,16 @@ function main(): void {
   let devOverrides: DevOverrides = { ...DEFAULT_DEV_OVERRIDES };
   let currentWeather: WeatherState = 'sunny';
   let benchmarkRunning = false;
+  let currentSettings: WeatherSettings = { ...DEFAULT_SETTINGS };
   let settingsMenu: SettingsMenu | undefined;
+
+  function applySettingsLocally(settings: WeatherSettings): void {
+    currentSettings = settings;
+    renderer.handleMessage({ type: 'settings', settings });
+    pauseWhenHidden = settings.pauseWhenHidden;
+    updateRunningState();
+    settingsMenu?.onSettingsChange(settings);
+  }
 
   async function runBenchmark(): Promise<string> {
     if (benchmarkRunning) {
@@ -89,10 +98,8 @@ function main(): void {
   settingsMenu = new SettingsMenu(
     {
       updateSetting(key, value) {
+        applySettingsLocally({ ...currentSettings, [key]: value });
         vscode.postMessage({ type: 'updateSetting', setting: key, value });
-      },
-      openExtensionSettings() {
-        vscode.postMessage({ type: 'openExtensionSettings' });
       },
     },
     devBridge,
@@ -177,6 +184,16 @@ function main(): void {
       return;
     }
 
+    if (msg.type === 'triggerFireflies') {
+      renderer.getFireflySystem().triggerFireflies();
+      return;
+    }
+
+    if (msg.type === 'triggerRainbow') {
+      renderer.getRainbowSystem().triggerRainbow();
+      return;
+    }
+
     if (msg.type === 'showFps') {
       perf.visible = msg.visible ?? false;
       return;
@@ -192,6 +209,7 @@ function main(): void {
     renderer.handleMessage(msg);
 
     if ((msg.type === 'settings' || msg.type === 'init') && msg.settings) {
+      currentSettings = msg.settings;
       pauseWhenHidden = msg.settings.pauseWhenHidden;
       updateRunningState();
       settingsMenu?.onSettingsChange(msg.settings);

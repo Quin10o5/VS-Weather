@@ -37,7 +37,7 @@ const SEGMENTS = 5;
 const MIN_LEN = PIXEL * 2;
 const MAX_LEN = PIXEL * 6;
 const CRAWL_SPEED = 26;
-const GROUND_LIFT = PIXEL * 3;
+const GROUND_LIFT = PIXEL * 2;
 const HEART_DURATION = 1.15;
 const MAX_HEARTS = 6;
 
@@ -234,7 +234,7 @@ export class InchwormSystem implements WeatherSystem {
   }
 
   private scheduleSpawn(): void {
-    this.nextSpawn = randomRange(90, 180);
+    this.nextSpawn = randomRange(360, 720);
   }
 
   private spawnInchworm(forcedDirection?: number): void {

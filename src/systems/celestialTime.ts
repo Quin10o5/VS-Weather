@@ -51,6 +51,14 @@ export function nightSkyStrength(hour: number): number {
   return edge / 0.12;
 }
 
+/** True during night and twilight near sunrise or sunset */
+export function isDuskOrNight(hour: number): boolean {
+  if (!isDaytime(hour)) {
+    return true;
+  }
+  return twilightStrength(getDayArcProgress(hour)) > 0.15;
+}
+
 export function getWeatherCelestialAlpha(weather: string): number {
   switch (weather) {
     case 'sunny':

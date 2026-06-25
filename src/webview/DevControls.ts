@@ -54,6 +54,14 @@ export class DevControls {
       this.bridge.triggerInchworm();
     });
 
+    document.getElementById('btn-fireflies')?.addEventListener('click', () => {
+      this.bridge.triggerFireflies();
+    });
+
+    document.getElementById('btn-rainbow')?.addEventListener('click', () => {
+      this.bridge.triggerRainbow();
+    });
+
     document.getElementById('btn-benchmark')?.addEventListener('click', () => {
       void this.runBenchmark();
     });

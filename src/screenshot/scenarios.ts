@@ -41,7 +41,7 @@ export const CAPTURE_SCENARIOS: CaptureScenario[] = [
     devOverrides: {
       timeOverride: 22.5,
       useTimeOverride: true,
-      cloudCount: 4,
+      cloudCount: 8,
       cloudOpacity: 1,
       intensity: 1,
       windDirection: 1,
@@ -60,7 +60,7 @@ export const CAPTURE_SCENARIOS: CaptureScenario[] = [
     devOverrides: {
       timeOverride: 11.25,
       useTimeOverride: true,
-      cloudCount: 4,
+      cloudCount: 8,
       cloudOpacity: 1,
       intensity: 1,
       rainDensity: 1,
@@ -79,7 +79,7 @@ export const CAPTURE_SCENARIOS: CaptureScenario[] = [
     devOverrides: {
       timeOverride: 18.5,
       useTimeOverride: true,
-      cloudCount: 5,
+      cloudCount: 10,
       cloudOpacity: 1,
       intensity: 1,
       windDirection: 1,

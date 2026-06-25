@@ -48,7 +48,7 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
         void writeSetting(msg.setting, msg.value);
       }
       if (msg.type === 'openExtensionSettings') {
-        void openExtensionSettings();
+        setImmediate(() => void openExtensionSettings());
       }
     });
 
@@ -143,98 +143,80 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
     }
     #settings-menu {
       position: fixed;
-      top: 26px;
-      right: 5px;
+      inset: 0;
       z-index: 101;
       pointer-events: auto;
-      width: min(260px, calc(100% - 10px));
-      max-height: min(calc(100% - 32px), 480px);
+      width: 100%;
+      height: 100%;
+      max-height: none;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      padding: 10px 12px;
-      border-radius: 6px;
-      background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.96));
-      border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+      gap: 12px;
+      padding: 12px 16px 16px;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.98));
     }
     #settings-menu[hidden] { display: none !important; }
     #settings-menu .menu-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 2px;
+      flex-shrink: 0;
     }
     #settings-menu .menu-title {
       font-weight: 600;
-      font-size: 12px;
-      opacity: 0.9;
+      font-size: 14px;
+      opacity: 0.95;
     }
-    #settings-menu-close {
-      background: transparent;
-      border: none;
-      color: var(--vscode-editor-foreground, #ccc);
-      cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
-      padding: 0 4px;
-      opacity: 0.75;
+    #settings-menu .menu-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
     }
-    #settings-menu-close:hover { opacity: 1; }
     #settings-menu .menu-section {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 8px;
       align-items: center;
     }
     #settings-menu .menu-section + .menu-section {
-      padding-top: 6px;
+      padding-top: 10px;
       border-top: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.25));
     }
     #settings-menu .section-label {
       flex: 1 1 100%;
-      font-size: 10px;
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      opacity: 0.65;
+      letter-spacing: 0.05em;
+      opacity: 0.7;
+      margin-bottom: 2px;
     }
     #settings-menu .menu-hint {
       flex: 1 1 100%;
-      font-size: 10px;
-      opacity: 0.55;
-      line-height: 1.35;
-    }
-    #settings-menu .menu-footer {
-      padding-top: 4px;
-    }
-    #settings-menu .link-btn {
-      background: transparent;
-      border: none;
-      color: var(--vscode-textLink-foreground, #3794ff);
-      cursor: pointer;
       font-size: 11px;
-      padding: 0;
-      text-align: left;
-    }
-    #settings-menu .link-btn:hover {
-      text-decoration: underline;
+      opacity: 0.6;
+      line-height: 1.4;
     }
     #settings-menu .check-row {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       flex: 1 1 100%;
+      font-size: 12px;
+    }
+    #settings-menu .check-row input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
     }
     #settings-menu button {
       background: var(--vscode-button-secondaryBackground, #3a3d41);
       color: var(--vscode-button-secondaryForeground, #fff);
       border: 1px solid var(--vscode-button-border, transparent);
       border-radius: 4px;
-      padding: 3px 8px;
+      padding: 4px 10px;
       cursor: pointer;
-      font-size: 11px;
+      font-size: 12px;
     }
     #settings-menu button:hover {
       background: var(--vscode-button-secondaryHoverBackground, #45494e);
@@ -242,22 +224,32 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
     #settings-menu .slider-row {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       flex: 1 1 100%;
+      font-size: 12px;
+    }
+    #settings-menu .slider-row > span:first-child {
+      min-width: 7.5em;
     }
     #settings-menu input[type="range"] {
       flex: 1;
-      min-width: 60px;
+      min-width: 80px;
       accent-color: var(--vscode-focusBorder, #007acc);
     }
-    #settings-menu select {
+    #settings-menu select,
+    #settings-menu input[type="number"] {
       background: var(--vscode-dropdown-background, #3c3c3c);
       color: var(--vscode-dropdown-foreground, #ccc);
       border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
       border-radius: 4px;
-      padding: 2px 4px;
-      font-size: 11px;
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+    #settings-menu select {
       flex: 1 1 100%;
+    }
+    #settings-menu input[type="number"] {
+      width: 72px;
     }
     #benchmark-result {
       font-family: var(--vscode-editor-font-family, monospace);
@@ -299,8 +291,8 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
     <div id="settings-menu" hidden role="dialog" aria-label="Settings">
       <div class="menu-header">
         <div id="settings-menu-title" class="menu-title">Settings</div>
-        <button id="settings-menu-close" type="button" title="Close">×</button>
       </div>
+      <div class="menu-body">
       <div id="normal-panel">
         <div class="menu-section">
           <span class="section-label">Scene</span>
@@ -311,19 +303,42 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
           <p class="menu-hint">Turn the animated sky on or off.</p>
         </div>
         <div class="menu-section">
+          <span class="section-label">Panel</span>
+          <label class="check-row">
+            <input id="chk-show-on-startup" type="checkbox" checked />
+            <span>Open on startup</span>
+          </label>
+          <div class="slider-row">
+            <span>Position</span>
+            <select id="sel-panel-position" aria-label="Panel position">
+              <option value="top">Top</option>
+              <option value="bottom">Bottom</option>
+            </select>
+          </div>
+          <label class="check-row">
+            <input id="chk-pause-hidden" type="checkbox" checked />
+            <span>Pause when hidden</span>
+          </label>
+          <p class="menu-hint">Place the weather bar above or below the editor. Pause animation when the panel is collapsed.</p>
+        </div>
+        <div class="menu-section">
           <span class="section-label">Look</span>
           <div class="slider-row">
-            <span>Strength:</span>
+            <span>Strength</span>
             <input id="slider-strength" type="range" min="0" max="2" step="0.1" value="1" />
             <span id="val-strength">Balanced</span>
           </div>
-          <p class="menu-hint">How strong rain, clouds, and other effects appear.</p>
+          <p class="menu-hint">How strong rain, clouds, snow, and other effects appear.</p>
         </div>
         <div class="menu-section">
           <span class="section-label">Details</span>
           <label class="check-row">
             <input id="chk-birds" type="checkbox" checked />
             <span>Birds</span>
+          </label>
+          <label class="check-row">
+            <input id="chk-mountains" type="checkbox" checked />
+            <span>Mountains</span>
           </label>
           <label class="check-row">
             <input id="chk-day-night" type="checkbox" checked />
@@ -333,11 +348,29 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
             <input id="chk-lightning" type="checkbox" checked />
             <span>Storm lightning</span>
           </label>
-          <p class="menu-hint">Weather changes on its own over time.</p>
+          <div class="slider-row">
+            <span>Snow season</span>
+            <select id="sel-snow-season" aria-label="Snow season">
+              <option value="auto">Auto (winter)</option>
+              <option value="always">Always</option>
+              <option value="never">Never</option>
+            </select>
+          </div>
+          <p class="menu-hint">Birds, mountains, celestial cycle, lightning, and when snow can appear.</p>
         </div>
-        <div class="menu-section menu-footer">
-          <button id="btn-open-settings" type="button" class="link-btn">All settings…</button>
-          <p class="menu-hint">Opens Cursor Settings for more options.</p>
+        <div class="menu-section">
+          <span class="section-label">Weather cycling</span>
+          <div class="slider-row">
+            <span>Min interval</span>
+            <input id="input-cycle-min" type="number" min="3" max="120" step="1" value="5" />
+            <span>minutes</span>
+          </div>
+          <div class="slider-row">
+            <span>Max interval</span>
+            <input id="input-cycle-max" type="number" min="5" max="180" step="1" value="15" />
+            <span>minutes</span>
+          </div>
+          <p class="menu-hint">How long before weather may change on its own.</p>
         </div>
       </div>
       <div id="dev-panel" hidden>
@@ -354,6 +387,8 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
         <button id="btn-lightning" type="button">Flash</button>
         <button id="btn-birds" type="button">Birds</button>
         <button id="btn-inchworm" type="button">Inchworm</button>
+        <button id="btn-fireflies" type="button">Fireflies</button>
+        <button id="btn-rainbow" type="button">Rainbow</button>
         <button id="btn-benchmark" type="button">Benchmark</button>
         <label class="check-row">
           <input id="chk-show-fps" type="checkbox" />
@@ -380,7 +415,7 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
         </div>
         <div class="slider-row">
           <span>Clouds</span>
-          <input id="slider-clouds" type="range" min="1" max="8" step="1" value="4" />
+          <input id="slider-clouds" type="range" min="1" max="16" step="1" value="8" />
           <span id="val-clouds">4</span>
         </div>
         <div class="slider-row">
