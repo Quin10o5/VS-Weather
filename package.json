@@ -1,8 +1,8 @@
 {
   "name": "pixel-weather",
   "displayName": "Pixel Weather",
-  "description": "Pixel-art clouds, rain, and thunder in a strip above your editor — matches your theme background.",
-  "version": "1.0.2",
+  "description": "Turn an unused terminal into a living artwork.",
+  "version": "1.0.3",
   "publisher": "quin10o5",
   "license": "MIT",
   "icon": "media/icon.png",
