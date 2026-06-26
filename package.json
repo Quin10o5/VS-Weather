@@ -2,7 +2,7 @@
   "name": "pixel-weather",
   "displayName": "Pixel Weather",
   "description": "Pixel-art clouds, rain, and thunder in a strip above your editor — matches your theme background.",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "publisher": "quin10o5",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -118,10 +118,30 @@
           "description": "Follow your local clock for sun, moon, and stars.",
           "markdownDescription": "Follow your local clock for sun, moon, stars, and sky brightness."
         },
+        "weather.nightEndHour": {
+          "type": "number",
+          "default": 6.5,
+          "minimum": 0,
+          "maximum": 23.75,
+          "order": 12,
+          "scope": "application",
+          "description": "Local hour when night ends (sunrise). Decimals for half hours (6.5 = 6:30 AM).",
+          "markdownDescription": "Local hour when night ends and day begins (sunrise). Use decimals for half hours — e.g. **6.5** = 6:30 AM."
+        },
+        "weather.nightStartHour": {
+          "type": "number",
+          "default": 19.5,
+          "minimum": 0,
+          "maximum": 23.75,
+          "order": 13,
+          "scope": "application",
+          "description": "Local hour when night begins (sunset). Decimals for half hours (19.5 = 7:30 PM).",
+          "markdownDescription": "Local hour when night begins and day ends (sunset). Use decimals for half hours — e.g. **19.5** = 7:30 PM."
+        },
         "weather.lightning": {
           "type": "boolean",
           "default": true,
-          "order": 12,
+          "order": 14,
           "scope": "application",
           "description": "Show lightning flashes during thunderstorms.",
           "markdownDescription": "Show lightning flashes during thunderstorms."
@@ -153,12 +173,52 @@
           "order": 15,
           "scope": "application",
           "enumDescriptions": [
-            "Snow appears in December, January, and February.",
+            "Snow appears during your configured winter date range.",
             "Snow can appear year-round.",
             "Rain never turns into snow."
           ],
           "description": "When snow effects are allowed.",
-          "markdownDescription": "Control when snow effects can appear.\n\n- **auto** — winter months only (Dec–Feb)\n- **always** — snow any time of year\n- **never** — no snow"
+          "markdownDescription": "Control when snow effects can appear.\n\n- **auto** — snow during your winter start/end dates (default Dec 1 – Feb 28)\n- **always** — snow any time of year\n- **never** — no snow"
+        },
+        "weather.winterStartMonth": {
+          "type": "number",
+          "default": 12,
+          "minimum": 1,
+          "maximum": 12,
+          "order": 16,
+          "scope": "application",
+          "description": "Winter start month (1–12) when snow season is auto.",
+          "markdownDescription": "Month when winter begins for **auto** snow season (1 = January, 12 = December)."
+        },
+        "weather.winterStartDay": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 31,
+          "order": 17,
+          "scope": "application",
+          "description": "Winter start day (1–31) when snow season is auto.",
+          "markdownDescription": "Day of month when winter begins for **auto** snow season. Invalid days are clamped (e.g. Feb 31 → Feb 28/29)."
+        },
+        "weather.winterEndMonth": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 12,
+          "order": 18,
+          "scope": "application",
+          "description": "Winter end month (1–12) when snow season is auto.",
+          "markdownDescription": "Month when winter ends for **auto** snow season (1 = January, 12 = December)."
+        },
+        "weather.winterEndDay": {
+          "type": "number",
+          "default": 28,
+          "minimum": 1,
+          "maximum": 31,
+          "order": 19,
+          "scope": "application",
+          "description": "Winter end day (1–31) when snow season is auto.",
+          "markdownDescription": "Day of month when winter ends for **auto** snow season. Ranges can wrap across the new year (e.g. Dec 1 – Feb 28)."
         },
         "weather.cycleIntervalMin": {
           "type": "number",

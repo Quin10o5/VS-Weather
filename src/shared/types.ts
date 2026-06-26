@@ -1,3 +1,5 @@
+import { CelestialSchedule, DEFAULT_CELESTIAL_SCHEDULE, isDaytime } from '../systems/celestialTime';
+
 export type WeatherState =
   | 'sunny'
   | 'cloudy'
@@ -27,13 +29,33 @@ export interface WeatherSettings {
   birds: boolean;
   mountains: boolean;
   dayNight: boolean;
+  nightEndHour: number;
+  nightStartHour: number;
   lightning: boolean;
   snowSeason: SnowSeasonMode;
+  winterStartMonth: number;
+  winterStartDay: number;
+  winterEndMonth: number;
+  winterEndDay: number;
   cycleIntervalMin: number;
   cycleIntervalMax: number;
   pauseWhenHidden: boolean;
   uiMode: WeatherUiMode;
 }
+
+export interface WinterDates {
+  winterStartMonth: number;
+  winterStartDay: number;
+  winterEndMonth: number;
+  winterEndDay: number;
+}
+
+export const DEFAULT_WINTER_DATES: WinterDates = {
+  winterStartMonth: 12,
+  winterStartDay: 1,
+  winterEndMonth: 2,
+  winterEndDay: 28,
+};
 
 export interface DevOverrides {
   intensity?: number;
@@ -100,19 +122,80 @@ export const WINTER_WEATHER_WEIGHTS: Record<WeatherState, number> = {
   snow: 9,
 };
 
-export function isSnowSeason(date: Date = new Date()): boolean {
-  const month = date.getMonth();
-  return month === 11 || month === 0 || month === 1;
+export function clampWinterDay(month: number, day: number, year: number): number {
+  const clampedMonth = Math.min(12, Math.max(1, Math.round(month)));
+  const maxDay = new Date(year, clampedMonth, 0).getDate();
+  return Math.min(maxDay, Math.max(1, Math.round(day)));
 }
 
-export function isSnowEnabled(mode: SnowSeasonMode, date: Date = new Date()): boolean {
+export function clampWinterMonth(month: number): number {
+  return Math.min(12, Math.max(1, Math.round(month)));
+}
+
+export function normalizeWinterDates(
+  winter: WinterDates,
+  year: number = new Date().getFullYear()
+): WinterDates {
+  const winterStartMonth = clampWinterMonth(winter.winterStartMonth);
+  const winterEndMonth = clampWinterMonth(winter.winterEndMonth);
+  return {
+    winterStartMonth,
+    winterStartDay: clampWinterDay(winterStartMonth, winter.winterStartDay, year),
+    winterEndMonth,
+    winterEndDay: clampWinterDay(winterEndMonth, winter.winterEndDay, year),
+  };
+}
+
+function monthDayKey(month: number, day: number): number {
+  return month * 100 + day;
+}
+
+export function isDateInWinterRange(date: Date, winter: WinterDates): boolean {
+  const year = date.getFullYear();
+  const normalized = normalizeWinterDates(winter, year);
+  const today = monthDayKey(date.getMonth() + 1, date.getDate());
+  const start = monthDayKey(normalized.winterStartMonth, normalized.winterStartDay);
+  const end = monthDayKey(normalized.winterEndMonth, normalized.winterEndDay);
+
+  if (start <= end) {
+    return today >= start && today <= end;
+  }
+  return today >= start || today <= end;
+}
+
+export function winterDatesFromSettings(
+  settings: Pick<
+    WeatherSettings,
+    'winterStartMonth' | 'winterStartDay' | 'winterEndMonth' | 'winterEndDay'
+  >
+): WinterDates {
+  return normalizeWinterDates({
+    winterStartMonth: settings.winterStartMonth,
+    winterStartDay: settings.winterStartDay,
+    winterEndMonth: settings.winterEndMonth,
+    winterEndDay: settings.winterEndDay,
+  });
+}
+
+export function isSnowSeason(
+  date: Date = new Date(),
+  winter: WinterDates = DEFAULT_WINTER_DATES
+): boolean {
+  return isDateInWinterRange(date, winter);
+}
+
+export function isSnowEnabled(
+  mode: SnowSeasonMode,
+  date: Date = new Date(),
+  winter: WinterDates = DEFAULT_WINTER_DATES
+): boolean {
   if (mode === 'always') {
     return true;
   }
   if (mode === 'never') {
     return false;
   }
-  return isSnowSeason(date);
+  return isSnowSeason(date, winter);
 }
 
 export function getDayOfYear(date: Date = new Date()): number {
@@ -152,9 +235,10 @@ export function formatDayOfYear(dayOfYear: number, year?: number): string {
 export function mapWeatherForSeason(
   state: WeatherState,
   date: Date = new Date(),
-  snowSeasonMode: SnowSeasonMode = 'auto'
+  snowSeasonMode: SnowSeasonMode = 'auto',
+  winter: WinterDates = DEFAULT_WINTER_DATES
 ): WeatherState {
-  const snowSeason = isSnowEnabled(snowSeasonMode, date);
+  const snowSeason = isSnowEnabled(snowSeasonMode, date, winter);
   if (state === 'fog') {
     return 'cloudy';
   }
@@ -167,9 +251,21 @@ export function mapWeatherForSeason(
   return state;
 }
 
-export function getDayPhase(date: Date = new Date()): DayPhase {
+export function celestialScheduleFromSettings(
+  settings: Pick<WeatherSettings, 'nightStartHour' | 'nightEndHour'>
+): CelestialSchedule {
+  return {
+    sunriseHour: settings.nightEndHour,
+    sunsetHour: settings.nightStartHour,
+  };
+}
+
+export function getDayPhase(
+  date: Date = new Date(),
+  schedule: CelestialSchedule = DEFAULT_CELESTIAL_SCHEDULE
+): DayPhase {
   const hour = date.getHours() + date.getMinutes() / 60;
-  return hour >= 6.5 && hour < 19.5 ? 'day' : 'night';
+  return isDaytime(hour, schedule) ? 'day' : 'night';
 }
 
 export function randomRange(min: number, max: number): number {
@@ -204,8 +300,14 @@ export const DEFAULT_SETTINGS: WeatherSettings = {
   birds: true,
   mountains: true,
   dayNight: true,
+  nightEndHour: DEFAULT_CELESTIAL_SCHEDULE.sunriseHour,
+  nightStartHour: DEFAULT_CELESTIAL_SCHEDULE.sunsetHour,
   lightning: true,
   snowSeason: 'auto',
+  winterStartMonth: DEFAULT_WINTER_DATES.winterStartMonth,
+  winterStartDay: DEFAULT_WINTER_DATES.winterStartDay,
+  winterEndMonth: DEFAULT_WINTER_DATES.winterEndMonth,
+  winterEndDay: DEFAULT_WINTER_DATES.winterEndDay,
   cycleIntervalMin: 5,
   cycleIntervalMax: 15,
   pauseWhenHidden: true,

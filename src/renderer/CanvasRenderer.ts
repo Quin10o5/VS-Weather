@@ -6,9 +6,11 @@ import {
   isSnowEnabled,
   mapWeatherForSeason,
   resolveDate,
+  getDayOfYear,
   WeatherSettings,
   WeatherState,
   WindState,
+  winterDatesFromSettings,
 } from '../shared/types';
 import { WeatherSystem } from '../systems/WeatherSystem';
 import { CloudSystem } from '../systems/CloudSystem';
@@ -18,16 +20,18 @@ import { SnowSystem } from '../systems/SnowSystem';
 import { LightningSystem } from '../systems/LightningSystem';
 import { BirdSystem } from '../systems/BirdSystem';
 import { MountainSystem } from '../systems/MountainSystem';
+import { GroundSnowSystem } from '../systems/GroundSnowSystem';
 import { InchwormSystem } from '../systems/InchwormSystem';
 import { FireflySystem } from '../systems/FireflySystem';
 import { RainbowSystem } from '../systems/RainbowSystem';
-import { configurePixelCanvas } from './pixelArt';
+import { configurePixelCanvas, getPixelDpr, refreshPixelDpr } from './pixelArt';
 import {
   WEATHER_TRANSITION_SEC,
   blendCelestialAlpha,
   blendSunGlowPresence,
   blendCloudPresence,
   blendLightningPresence,
+  blendGroundSnowDepth,
   blendMountainSnowPresence,
   blendRainPresence,
   blendSnowPresence,
@@ -44,6 +48,7 @@ export class CanvasRenderer {
   private readonly lightningSystem = new LightningSystem();
   private readonly birdSystem = new BirdSystem();
   private readonly mountainSystem = new MountainSystem();
+  private readonly groundSnowSystem = new GroundSnowSystem();
   private readonly inchwormSystem = new InchwormSystem();
   private readonly rainbowSystem = new RainbowSystem();
   private readonly fireflySystem = new FireflySystem();
@@ -62,6 +67,9 @@ export class CanvasRenderer {
   private transparentBackground = false;
   private cachedBg = '#1e1e1e';
   private bgCacheAt = 0;
+  private snowSeasonCache = { value: false, dayKey: '', at: 0 };
+  private lastMountainSnowTarget = -1;
+  private lastGroundSnowDepth = -1;
 
   constructor(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -75,6 +83,7 @@ export class CanvasRenderer {
     this.systems = [
       this.sunSystem,
       this.mountainSystem,
+      this.groundSnowSystem,
       this.rainSystem,
       this.snowSystem,
       this.cloudSystem,
@@ -116,7 +125,8 @@ export class CanvasRenderer {
   }
 
   resize(width: number, height: number): void {
-    const dpr = window.devicePixelRatio || 1;
+    refreshPixelDpr();
+    const dpr = getPixelDpr();
     this.width = width;
     this.height = height;
     this.canvas.width = Math.round(width * dpr);
@@ -177,6 +187,7 @@ export class CanvasRenderer {
 
   setDevOverrides(overrides: DevOverrides): void {
     this.devOverrides = { ...this.devOverrides, ...overrides };
+    this.invalidateSnowSeasonCache();
     this.applyDevOverrides();
     if (this.transitionProgress >= 1) {
       this.applyDisplayWeather();
@@ -208,6 +219,7 @@ export class CanvasRenderer {
     this.rainSystem.update(dt, this.time);
     this.snowSystem.update(dt, this.time);
     this.mountainSystem.update(dt, this.time);
+    this.groundSnowSystem.update(dt, this.time);
     this.lightningSystem.update(dt, this.time);
     this.birdSystem.update(dt, this.time);
     this.inchwormSystem.update(dt, this.time);
@@ -224,8 +236,9 @@ export class CanvasRenderer {
     this.rainbowSystem.setRainPresence(Math.max(rainPresence, snowPresence));
     this.rainbowSystem.update(dt, this.time);
     this.fireflySystem.update(dt, this.time);
-    this.applyMountainSnowTarget();
-    if (this.isSnowSeason()) {
+    const snowSeason = this.getSnowSeason();
+    this.applyMountainSnowTarget(snowSeason);
+    if (snowSeason) {
       this.rainbowSystem.dismiss();
     }
   }
@@ -321,7 +334,7 @@ export class CanvasRenderer {
     this.displayWeather = nextDisplay;
     this.transitionProgress = 0;
 
-    if (this.isSnowSeason()) {
+    if (this.getSnowSeason()) {
       this.rainbowSystem.dismiss();
     } else if (shouldShowRainbow(previousWeather, nextDisplay, previousRaw, this.rawWeather)) {
       this.rainbowSystem.scheduleRainbow();
@@ -341,7 +354,12 @@ export class CanvasRenderer {
       this.devOverrides.dateOverrideDayOfYear,
       this.devOverrides.useDateOverride
     );
-    return mapWeatherForSeason(state, date, this.settings.snowSeason);
+    return mapWeatherForSeason(
+      state,
+      date,
+      this.settings.snowSeason,
+      winterDatesFromSettings(this.settings)
+    );
   }
 
   private applyTransitionStrengths(): void {
@@ -357,17 +375,36 @@ export class CanvasRenderer {
     this.sunSystem.setSunGlowStrength(blendSunGlowPresence(from, to, t));
   }
 
-  private isSnowSeason(): boolean {
+  private invalidateSnowSeasonCache(): void {
+    this.snowSeasonCache.at = 0;
+    this.lastMountainSnowTarget = -1;
+    this.lastGroundSnowDepth = -1;
+  }
+
+  private getSnowSeason(): boolean {
     const date = resolveDate(
       new Date(),
       this.devOverrides.dateOverrideDayOfYear,
       this.devOverrides.useDateOverride
     );
-    return isSnowEnabled(this.settings.snowSeason, date);
+    const dayKey = `${date.getFullYear()}-${getDayOfYear(date)}-${this.settings.snowSeason}-${this.settings.winterStartMonth}-${this.settings.winterStartDay}-${this.settings.winterEndMonth}-${this.settings.winterEndDay}`;
+    const now = performance.now();
+    if (
+      dayKey === this.snowSeasonCache.dayKey &&
+      now - this.snowSeasonCache.at < 60_000
+    ) {
+      return this.snowSeasonCache.value;
+    }
+    const value = isSnowEnabled(
+      this.settings.snowSeason,
+      date,
+      winterDatesFromSettings(this.settings)
+    );
+    this.snowSeasonCache = { value, dayKey, at: now };
+    return value;
   }
 
-  private applyMountainSnowTarget(): void {
-    const winter = this.isSnowSeason();
+  private applyMountainSnowTarget(winter: boolean): void {
     const target = winter
       ? blendMountainSnowPresence(
           this.transitionFrom,
@@ -375,7 +412,24 @@ export class CanvasRenderer {
           this.transitionProgress
         )
       : 0;
-    this.mountainSystem.setSnowTarget(target);
+    const depth = winter
+      ? blendGroundSnowDepth(
+          this.transitionFrom,
+          this.transitionTo,
+          this.transitionProgress
+        )
+      : 0;
+
+    if (Math.abs(target - this.lastMountainSnowTarget) > 0.0005) {
+      this.lastMountainSnowTarget = target;
+      this.mountainSystem.setSnowTarget(target);
+      this.groundSnowSystem.setSnowTarget(target);
+    }
+
+    if (depth !== this.lastGroundSnowDepth) {
+      this.lastGroundSnowDepth = depth;
+      this.groundSnowSystem.setDepthTarget(depth);
+    }
   }
 
   private applyDisplayWeather(): void {
@@ -400,11 +454,13 @@ export class CanvasRenderer {
 
   private setSettings(settings: WeatherSettings): void {
     this.settings = settings;
+    this.invalidateSnowSeasonCache();
     for (const system of this.systems) {
       system.onSettingsChange({
         ...settings,
         intensity: this.devOverrides.intensity ?? settings.intensity,
       });
     }
+    this.applyDisplayWeather();
   }
 }

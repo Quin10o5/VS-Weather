@@ -3,17 +3,28 @@ export const PIXEL = 4;
 
 let scratchCanvas: HTMLCanvasElement | null = null;
 let scratchCtx: CanvasRenderingContext2D | null = null;
+let cachedDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+
+export function refreshPixelDpr(): void {
+  if (typeof window !== 'undefined') {
+    cachedDpr = window.devicePixelRatio || 1;
+  }
+}
+
+export function getPixelDpr(): number {
+  return cachedDpr;
+}
 
 export function configurePixelCanvas(ctx: CanvasRenderingContext2D): void {
   ctx.imageSmoothingEnabled = false;
 }
 
 /** Align a logical coordinate to the physical pixel grid (avoids hairline gaps at DPR ≠ 1). */
-export function snapDrawCoord(n: number, dpr = window.devicePixelRatio || 1): number {
+export function snapDrawCoord(n: number, dpr = cachedDpr): number {
   return Math.round(n * dpr) / dpr;
 }
 
-export function snapDrawSize(n: number, dpr = window.devicePixelRatio || 1): number {
+export function snapDrawSize(n: number, dpr = cachedDpr): number {
   return Math.max(1 / dpr, Math.round(n * dpr) / dpr);
 }
 
@@ -62,11 +73,10 @@ export function fillBlock(
   color: string,
   alpha = 1
 ): void {
-  const dpr = window.devicePixelRatio || 1;
-  const px = snapDrawCoord(snap(x), dpr);
-  const py = snapDrawCoord(snap(y), dpr);
-  const w = snapDrawSize(blocksW * PIXEL, dpr);
-  const h = snapDrawSize(blocksH * PIXEL, dpr);
+  const px = snapDrawCoord(snap(x));
+  const py = snapDrawCoord(snap(y));
+  const w = snapDrawSize(blocksW * PIXEL);
+  const h = snapDrawSize(blocksH * PIXEL);
   if (alpha === 1) {
     ctx.fillStyle = color;
     ctx.fillRect(px, py, w, h);

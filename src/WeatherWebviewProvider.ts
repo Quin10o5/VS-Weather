@@ -231,6 +231,20 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
     #settings-menu .slider-row > span:first-child {
       min-width: 7.5em;
     }
+    #settings-menu .winter-dates-panel {
+      margin-top: 0.35em;
+      flex: 1 1 100%;
+    }
+    #settings-menu .winter-dates-panel input[type="number"] {
+      width: 3.2em;
+    }
+    #settings-menu .night-hours-panel {
+      margin-top: 0.35em;
+      flex: 1 1 100%;
+    }
+    #settings-menu .night-hours-panel input[type="number"] {
+      width: 4.5em;
+    }
     #settings-menu input[type="range"] {
       flex: 1;
       min-width: 80px;
@@ -344,6 +358,17 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
             <input id="chk-day-night" type="checkbox" checked />
             <span>Day &amp; night</span>
           </label>
+          <div id="night-hours-panel" class="night-hours-panel">
+            <div class="slider-row">
+              <span>Night ends</span>
+              <input id="input-night-end-hour" type="number" min="0" max="23.75" step="0.25" value="6.5" aria-label="Night end hour (sunrise)" />
+            </div>
+            <div class="slider-row">
+              <span>Night starts</span>
+              <input id="input-night-start-hour" type="number" min="0" max="23.75" step="0.25" value="19.5" aria-label="Night start hour (sunset)" />
+            </div>
+            <p class="menu-hint">Local hours with decimals for half hours (6.5 = 6:30 AM).</p>
+          </div>
           <label class="check-row">
             <input id="chk-lightning" type="checkbox" checked />
             <span>Storm lightning</span>
@@ -356,7 +381,21 @@ export class WeatherWebviewProvider implements vscode.WebviewViewProvider {
               <option value="never">Never</option>
             </select>
           </div>
-          <p class="menu-hint">Birds, mountains, celestial cycle, lightning, and when snow can appear.</p>
+          <div id="winter-dates-panel" class="winter-dates-panel">
+            <div class="slider-row">
+              <span>Winter start</span>
+              <input id="input-winter-start-month" type="number" min="1" max="12" step="1" value="12" aria-label="Winter start month" />
+              <span>/</span>
+              <input id="input-winter-start-day" type="number" min="1" max="31" step="1" value="1" aria-label="Winter start day" />
+            </div>
+            <div class="slider-row">
+              <span>Winter end</span>
+              <input id="input-winter-end-month" type="number" min="1" max="12" step="1" value="2" aria-label="Winter end month" />
+              <span>/</span>
+              <input id="input-winter-end-day" type="number" min="1" max="31" step="1" value="28" aria-label="Winter end day" />
+            </div>
+          </div>
+          <p class="menu-hint">Birds, mountains, celestial cycle, lightning, and when snow can appear. Winter dates apply when snow season is Auto.</p>
         </div>
         <div class="menu-section">
           <span class="section-label">Weather cycling</span>

@@ -1,13 +1,24 @@
-import { DayPhase, DEFAULT_SETTINGS, DevOverrides, WeatherSettings, WeatherState, WindState } from '../shared/types';
+import {
+  DayPhase,
+  DEFAULT_SETTINGS,
+  DevOverrides,
+  WeatherSettings,
+  WeatherState,
+  WindState,
+  celestialScheduleFromSettings,
+} from '../shared/types';
 import { fillBlock, PIXEL, snap } from '../renderer/pixelArt';
 import {
   arcY,
+  DEFAULT_CELESTIAL_SCHEDULE,
   getDayArcProgress,
   getNightArcProgress,
   isDaytime,
   nightSkyStrength,
+  normalizeCelestialSchedule,
   resolveHour,
   twilightStrength,
+  type CelestialSchedule,
 } from './celestialTime';
 import { WeatherSystem } from './WeatherSystem';
 
@@ -25,6 +36,7 @@ export class SunSystem implements WeatherSystem {
   private devOverrides: DevOverrides = {};
   private stars: StarPoint[] = [];
   private settings: WeatherSettings = { ...DEFAULT_SETTINGS };
+  private celestialSchedule: CelestialSchedule = DEFAULT_CELESTIAL_SCHEDULE;
   private celestialAlpha = 1;
   private sunGlowAlpha = 1;
   private animTime = 0;
@@ -92,6 +104,7 @@ export class SunSystem implements WeatherSystem {
 
   onSettingsChange(settings: WeatherSettings): void {
     this.settings = settings;
+    this.celestialSchedule = normalizeCelestialSchedule(celestialScheduleFromSettings(settings));
   }
 
   onDayPhaseChange(_phase: DayPhase): void {}
@@ -133,10 +146,11 @@ export class SunSystem implements WeatherSystem {
       this.devOverrides.timeOverride,
       this.devOverrides.useTimeOverride
     );
+    const schedule = this.celestialSchedule;
 
     const bodyX = snap(w * 0.1);
-    const day = isDaytime(hour);
-    const progress = day ? getDayArcProgress(hour) : getNightArcProgress(hour);
+    const day = isDaytime(hour, schedule);
+    const progress = day ? getDayArcProgress(hour, schedule) : getNightArcProgress(hour, schedule);
     const bodyY = arcY(progress, h, snap);
     const twilight = twilightStrength(progress);
 
@@ -145,7 +159,7 @@ export class SunSystem implements WeatherSystem {
     }
 
     if (!day) {
-      const starStrength = nightSkyStrength(hour) * visibility;
+      const starStrength = nightSkyStrength(hour, schedule) * visibility;
       if (starStrength > 0.02) {
         this.drawStars(ctx, starStrength);
       }

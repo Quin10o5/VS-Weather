@@ -59,6 +59,16 @@ export const MOUNTAIN_SNOW_PRESENCE: Record<WeatherState, number> = {
   snow: 1,
 };
 
+/** Ground snow depth in pixel-grid blocks (1 block = PIXEL px tall). */
+export const GROUND_SNOW_DEPTH_BLOCKS: Record<WeatherState, number> = {
+  sunny: 1,
+  cloudy: 2,
+  rain: 2,
+  thunderstorm: 2,
+  fog: 2,
+  snow: 3,
+};
+
 export const LIGHTNING_PRESENCE: Record<WeatherState, number> = {
   sunny: 0,
   cloudy: 0,
@@ -102,6 +112,16 @@ export function blendMountainSnowPresence(from: WeatherState, to: WeatherState, 
     presenceFor(MOUNTAIN_SNOW_PRESENCE, from),
     presenceFor(MOUNTAIN_SNOW_PRESENCE, to),
     t
+  );
+}
+
+export function blendGroundSnowDepth(from: WeatherState, to: WeatherState, t: number): number {
+  return Math.round(
+    blendScalar(
+      presenceFor(GROUND_SNOW_DEPTH_BLOCKS, from),
+      presenceFor(GROUND_SNOW_DEPTH_BLOCKS, to),
+      t
+    )
   );
 }
 

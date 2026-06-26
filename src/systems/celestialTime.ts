@@ -1,28 +1,76 @@
-export const SUNRISE_HOUR = 6.5;
-export const SUNSET_HOUR = 19.5;
-export const DAY_LENGTH = SUNSET_HOUR - SUNRISE_HOUR;
-export const NIGHT_LENGTH = 24 - DAY_LENGTH;
+export interface CelestialSchedule {
+  sunriseHour: number;
+  sunsetHour: number;
+}
+
+export const DEFAULT_CELESTIAL_SCHEDULE: CelestialSchedule = {
+  sunriseHour: 6.5,
+  sunsetHour: 19.5,
+};
+
+/** @deprecated Use DEFAULT_CELESTIAL_SCHEDULE.sunriseHour */
+export const SUNRISE_HOUR = DEFAULT_CELESTIAL_SCHEDULE.sunriseHour;
+/** @deprecated Use DEFAULT_CELESTIAL_SCHEDULE.sunsetHour */
+export const SUNSET_HOUR = DEFAULT_CELESTIAL_SCHEDULE.sunsetHour;
+
+export function clampHour(hour: number): number {
+  const wrapped = ((hour % 24) + 24) % 24;
+  return Math.round(wrapped * 4) / 4;
+}
+
+export function normalizeCelestialSchedule(
+  schedule: CelestialSchedule
+): CelestialSchedule {
+  const sunriseHour = clampHour(schedule.sunriseHour);
+  let sunsetHour = clampHour(schedule.sunsetHour);
+  if (sunsetHour <= sunriseHour) {
+    sunsetHour = Math.min(23.75, sunriseHour + 1);
+  }
+  return { sunriseHour, sunsetHour };
+}
+
+function dayLength(schedule: CelestialSchedule): number {
+  const { sunriseHour, sunsetHour } = normalizeCelestialSchedule(schedule);
+  return sunsetHour - sunriseHour;
+}
+
+function nightLength(schedule: CelestialSchedule): number {
+  return 24 - dayLength(schedule);
+}
 
 export function resolveHour(realHour: number, overrideHour?: number, useOverride?: boolean): number {
   if (useOverride && overrideHour !== undefined) {
-    return ((overrideHour % 24) + 24) % 24;
+    return clampHour(overrideHour);
   }
   return realHour;
 }
 
-export function isDaytime(hour: number): boolean {
-  return hour >= SUNRISE_HOUR && hour < SUNSET_HOUR;
+export function isDaytime(
+  hour: number,
+  schedule: CelestialSchedule = DEFAULT_CELESTIAL_SCHEDULE
+): boolean {
+  const { sunriseHour, sunsetHour } = normalizeCelestialSchedule(schedule);
+  return hour >= sunriseHour && hour < sunsetHour;
 }
 
-export function getDayArcProgress(hour: number): number {
-  return Math.max(0, Math.min(1, (hour - SUNRISE_HOUR) / DAY_LENGTH));
+export function getDayArcProgress(
+  hour: number,
+  schedule: CelestialSchedule = DEFAULT_CELESTIAL_SCHEDULE
+): number {
+  const { sunriseHour } = normalizeCelestialSchedule(schedule);
+  return Math.max(0, Math.min(1, (hour - sunriseHour) / dayLength(schedule)));
 }
 
-export function getNightArcProgress(hour: number): number {
-  if (hour >= SUNSET_HOUR) {
-    return (hour - SUNSET_HOUR) / NIGHT_LENGTH;
+export function getNightArcProgress(
+  hour: number,
+  schedule: CelestialSchedule = DEFAULT_CELESTIAL_SCHEDULE
+): number {
+  const { sunsetHour } = normalizeCelestialSchedule(schedule);
+  const length = nightLength(schedule);
+  if (hour >= sunsetHour) {
+    return (hour - sunsetHour) / length;
   }
-  return (hour + (24 - SUNSET_HOUR)) / NIGHT_LENGTH;
+  return (hour + (24 - sunsetHour)) / length;
 }
 
 export function arcY(progress: number, height: number, snapFn: (n: number) => number): number {
@@ -39,11 +87,14 @@ export function twilightStrength(progress: number): number {
 }
 
 /** 0 at sunset/sunrise, ramps to 1 through early night and holds until pre-dawn */
-export function nightSkyStrength(hour: number): number {
-  if (isDaytime(hour)) {
+export function nightSkyStrength(
+  hour: number,
+  schedule: CelestialSchedule = DEFAULT_CELESTIAL_SCHEDULE
+): number {
+  if (isDaytime(hour, schedule)) {
     return 0;
   }
-  const progress = getNightArcProgress(hour);
+  const progress = getNightArcProgress(hour, schedule);
   const edge = Math.min(progress, 1 - progress);
   if (edge >= 0.12) {
     return 1;
@@ -52,11 +103,14 @@ export function nightSkyStrength(hour: number): number {
 }
 
 /** True during night and twilight near sunrise or sunset */
-export function isDuskOrNight(hour: number): boolean {
-  if (!isDaytime(hour)) {
+export function isDuskOrNight(
+  hour: number,
+  schedule: CelestialSchedule = DEFAULT_CELESTIAL_SCHEDULE
+): boolean {
+  if (!isDaytime(hour, schedule)) {
     return true;
   }
-  return twilightStrength(getDayArcProgress(hour)) > 0.15;
+  return twilightStrength(getDayArcProgress(hour, schedule)) > 0.15;
 }
 
 export function getWeatherCelestialAlpha(weather: string): number {

@@ -1,5 +1,5 @@
 import { DayPhase, DEFAULT_SETTINGS, WeatherSettings, WeatherState, WindState } from '../shared/types';
-import { fillBlock, PIXEL, snap } from '../renderer/pixelArt';
+import { fillBlock, PIXEL, configurePixelCanvas, snap } from '../renderer/pixelArt';
 import {
   MAIN_CLUSTER_CENTER_X,
   MOUNTAIN_BASE_LAYER,
@@ -44,6 +44,11 @@ export class MountainSystem implements WeatherSystem {
   private surroundBackOrder: number[] = shuffledSurroundBackOrder(0x6d357133);
   private mainOrder: number[] = shuffledMainOrder(0x6d357133);
   private surroundFrontOrder: number[] = shuffledSurroundFrontOrder(0x6d357133);
+  private staticCanvas: HTMLCanvasElement | null = null;
+  private staticCtx: CanvasRenderingContext2D | null = null;
+  private staticCacheKey = '';
+  private snowCapCacheKey = '';
+  private snowCapCells: Array<{ x: number; row: number }> = [];
 
   setDimensions(width: number, height: number): void {
     const sizeChanged = width !== this.width || height !== this.height;
@@ -55,6 +60,7 @@ export class MountainSystem implements WeatherSystem {
       this.surroundBackOrder = shuffledSurroundBackOrder(seed);
       this.mainOrder = shuffledMainOrder(seed);
       this.surroundFrontOrder = shuffledSurroundFrontOrder(seed);
+      this.invalidateStaticCache();
     }
   }
 
@@ -71,6 +77,7 @@ export class MountainSystem implements WeatherSystem {
 
   onSettingsChange(settings: WeatherSettings): void {
     this.settings = settings;
+    this.invalidateStaticCache();
   }
 
   onDayPhaseChange(_phase: DayPhase): void {}
@@ -134,48 +141,101 @@ export class MountainSystem implements WeatherSystem {
     ctx.rect(0, 0, w, h);
     ctx.clip();
 
-    this.drawLayer(ctx, MOUNTAIN_BASE_LAYER, originX, baseY, visibleRows, intensity);
-
-    for (const layerIndex of this.leftRangeOrder) {
-      this.drawLayer(
-        ctx,
-        MOUNTAIN_LEFT_RANGE_LAYERS[layerIndex],
-        originX,
-        baseY,
-        visibleRows,
-        intensity
-      );
-    }
-
-    for (const layerIndex of this.surroundBackOrder) {
-      this.drawLayer(
-        ctx,
-        MOUNTAIN_SURROUND_BACK_LAYERS[layerIndex],
-        originX,
-        baseY,
-        visibleRows,
-        intensity
-      );
-    }
-
-    for (const layerIndex of this.mainOrder) {
-      this.drawLayer(ctx, MOUNTAIN_MAIN_LAYERS[layerIndex], originX, baseY, visibleRows, intensity);
-    }
-
-    for (const layerIndex of this.surroundFrontOrder) {
-      this.drawLayer(
-        ctx,
-        MOUNTAIN_SURROUND_FRONT_LAYERS[layerIndex],
-        originX,
-        baseY,
-        visibleRows,
-        intensity
-      );
-    }
-
+    this.drawStaticMountain(ctx, originX, baseY, visibleRows, intensity);
     this.drawSnowCaps(ctx, originX, baseY, visibleRows, intensity * this.snowStrength);
 
     ctx.restore();
+  }
+
+  private invalidateStaticCache(): void {
+    this.staticCacheKey = '';
+  }
+
+  private buildStaticCacheKey(visibleRows: number, intensity: number): string {
+    return [
+      visibleRows,
+      intensity.toFixed(3),
+      this.leftRangeOrder.join(','),
+      this.surroundBackOrder.join(','),
+      this.mainOrder.join(','),
+      this.surroundFrontOrder.join(','),
+    ].join('|');
+  }
+
+  private ensureStaticCanvas(width: number, height: number): CanvasRenderingContext2D {
+    if (!this.staticCanvas) {
+      this.staticCanvas = document.createElement('canvas');
+      this.staticCtx = this.staticCanvas.getContext('2d');
+      if (!this.staticCtx) {
+        throw new Error('Could not create mountain cache canvas');
+      }
+    }
+    if (this.staticCanvas.width !== width || this.staticCanvas.height !== height) {
+      this.staticCanvas.width = width;
+      this.staticCanvas.height = height;
+      this.staticCacheKey = '';
+    }
+    configurePixelCanvas(this.staticCtx);
+    return this.staticCtx;
+  }
+
+  private drawStaticMountain(
+    ctx: CanvasRenderingContext2D,
+    originX: number,
+    baseY: number,
+    visibleRows: number,
+    intensity: number
+  ): void {
+    const cacheWidth = MOUNTAIN_BLOCKS_W * PIXEL;
+    const cacheHeight = visibleRows * PIXEL;
+    const key = this.buildStaticCacheKey(visibleRows, intensity);
+
+    if (key !== this.staticCacheKey) {
+      const scratch = this.ensureStaticCanvas(cacheWidth, cacheHeight);
+      scratch.clearRect(0, 0, cacheWidth, cacheHeight);
+      this.drawLayer(scratch, MOUNTAIN_BASE_LAYER, 0, 0, visibleRows, intensity);
+
+      for (const layerIndex of this.leftRangeOrder) {
+        this.drawLayer(
+          scratch,
+          MOUNTAIN_LEFT_RANGE_LAYERS[layerIndex],
+          0,
+          0,
+          visibleRows,
+          intensity
+        );
+      }
+
+      for (const layerIndex of this.surroundBackOrder) {
+        this.drawLayer(
+          scratch,
+          MOUNTAIN_SURROUND_BACK_LAYERS[layerIndex],
+          0,
+          0,
+          visibleRows,
+          intensity
+        );
+      }
+
+      for (const layerIndex of this.mainOrder) {
+        this.drawLayer(scratch, MOUNTAIN_MAIN_LAYERS[layerIndex], 0, 0, visibleRows, intensity);
+      }
+
+      for (const layerIndex of this.surroundFrontOrder) {
+        this.drawLayer(
+          scratch,
+          MOUNTAIN_SURROUND_FRONT_LAYERS[layerIndex],
+          0,
+          0,
+          visibleRows,
+          intensity
+        );
+      }
+
+      this.staticCacheKey = key;
+    }
+
+    ctx.drawImage(this.staticCanvas!, originX, baseY, cacheWidth, cacheHeight);
   }
 
   private snowCapRows(columnHeight: number, strength: number): number {
@@ -194,19 +254,14 @@ export class MountainSystem implements WeatherSystem {
     return `rgb(${r},${g},${b})`;
   }
 
-  private drawSnowCaps(
-    ctx: CanvasRenderingContext2D,
-    originX: number,
-    baseY: number,
-    visibleRows: number,
-    strength: number
-  ): void {
-    if (strength <= 0.001) {
-      return;
+  private getSnowCapCells(visibleRows: number, strength: number): Array<{ x: number; row: number }> {
+    const key = `${visibleRows}|${Math.round(strength * 100)}`;
+    if (key === this.snowCapCacheKey) {
+      return this.snowCapCells;
     }
 
-    const color = this.snowColor(strength);
-    const snowCells = new Set<string>();
+    const cells: Array<{ x: number; row: number }> = [];
+    const seen = new Set<string>();
 
     for (let x = 0; x < MOUNTAIN_BLOCKS_W; x++) {
       const topRow = MOUNTAIN_TOP_ROW_BY_COLUMN[x];
@@ -224,25 +279,46 @@ export class MountainSystem implements WeatherSystem {
         if (row >= visibleRows || !this.isSilhouetteCell(x, row)) {
           continue;
         }
-        snowCells.add(`${x},${row}`);
+        const cellKey = `${x},${row}`;
+        if (!seen.has(cellKey)) {
+          seen.add(cellKey);
+          cells.push({ x, row });
+        }
       }
 
-      // Cover exposed slope faces near the crest (diagonal pyramid edges).
       for (let row = topRow; row < topRow + snowRows + 1; row++) {
         if (row < 0 || row >= visibleRows) {
           continue;
         }
         if (this.isExposedSurfaceCell(x, row)) {
-          snowCells.add(`${x},${row}`);
+          const cellKey = `${x},${row}`;
+          if (!seen.has(cellKey)) {
+            seen.add(cellKey);
+            cells.push({ x, row });
+          }
         }
       }
     }
 
-    for (const key of snowCells) {
-      const comma = key.indexOf(',');
-      const x = Number(key.slice(0, comma));
-      const row = Number(key.slice(comma + 1));
-      fillBlock(ctx, originX + x * PIXEL, baseY + row * PIXEL, 1, 1, color, 1);
+    this.snowCapCacheKey = key;
+    this.snowCapCells = cells;
+    return cells;
+  }
+
+  private drawSnowCaps(
+    ctx: CanvasRenderingContext2D,
+    originX: number,
+    baseY: number,
+    visibleRows: number,
+    strength: number
+  ): void {
+    if (strength <= 0.001) {
+      return;
+    }
+
+    const color = this.snowColor(strength);
+    for (const cell of this.getSnowCapCells(visibleRows, strength)) {
+      fillBlock(ctx, originX + cell.x * PIXEL, baseY + cell.row * PIXEL, 1, 1, color, 1);
     }
   }
 

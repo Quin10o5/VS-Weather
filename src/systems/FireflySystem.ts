@@ -5,10 +5,17 @@ import {
   WeatherSettings,
   WeatherState,
   WindState,
+  celestialScheduleFromSettings,
   randomRange,
 } from '../shared/types';
 import { fillBlock, snap } from '../renderer/pixelArt';
-import { isDuskOrNight, resolveHour } from './celestialTime';
+import {
+  DEFAULT_CELESTIAL_SCHEDULE,
+  isDuskOrNight,
+  normalizeCelestialSchedule,
+  resolveHour,
+  type CelestialSchedule,
+} from './celestialTime';
 import { WeatherSystem } from './WeatherSystem';
 
 interface Firefly {
@@ -48,6 +55,7 @@ export class FireflySystem implements WeatherSystem {
   private height = 0;
   private weather: WeatherState = 'sunny';
   private settings: WeatherSettings = { ...DEFAULT_SETTINGS };
+  private celestialSchedule: CelestialSchedule = DEFAULT_CELESTIAL_SCHEDULE;
   private devOverrides: DevOverrides = {};
   private forceActive = false;
   private spawnTimer = 0;
@@ -74,6 +82,7 @@ export class FireflySystem implements WeatherSystem {
 
   onSettingsChange(settings: WeatherSettings): void {
     this.settings = settings;
+    this.celestialSchedule = normalizeCelestialSchedule(celestialScheduleFromSettings(settings));
   }
 
   onDayPhaseChange(_phase: DayPhase): void {}
@@ -223,7 +232,7 @@ export class FireflySystem implements WeatherSystem {
       this.devOverrides.timeOverride,
       this.devOverrides.useTimeOverride
     );
-    return isDuskOrNight(hour);
+    return isDuskOrNight(hour, this.celestialSchedule);
   }
 
   private scheduleSpawn(): void {

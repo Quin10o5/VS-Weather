@@ -7,6 +7,8 @@ import {
   WeatherSettings,
   WeatherState,
   WebviewMessage,
+  celestialScheduleFromSettings,
+  getDayPhase,
 } from '../shared/types';
 import { PerformanceMonitor } from './PerformanceMonitor';
 import { SceneDevBridge } from './SceneDevBridge';
@@ -45,6 +47,10 @@ function main(): void {
   function applySettingsLocally(settings: WeatherSettings): void {
     currentSettings = settings;
     renderer.handleMessage({ type: 'settings', settings });
+    renderer.handleMessage({
+      type: 'dayPhase',
+      dayPhase: getDayPhase(new Date(), celestialScheduleFromSettings(settings)),
+    });
     pauseWhenHidden = settings.pauseWhenHidden;
     updateRunningState();
     settingsMenu?.onSettingsChange(settings);

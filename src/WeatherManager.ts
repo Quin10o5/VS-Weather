@@ -9,6 +9,8 @@ import {
   WeatherSettings,
   WeatherState,
   WindState,
+  celestialScheduleFromSettings,
+  winterDatesFromSettings,
 } from './shared/types';
 import { readSettings } from './settings';
 
@@ -17,7 +19,7 @@ type MessageCallback = (msg: HostMessage) => void;
 export class WeatherManager implements vscode.Disposable {
   private weather: WeatherState = 'sunny';
   private wind: WindState = { strength: 0.5, direction: 1 };
-  private dayPhase: DayPhase = getDayPhase();
+  private dayPhase: DayPhase;
   private weatherTimer: ReturnType<typeof setTimeout> | undefined;
   private windTimer: ReturnType<typeof setTimeout> | undefined;
   private dayTimer: ReturnType<typeof setInterval> | undefined;
@@ -25,6 +27,8 @@ export class WeatherManager implements vscode.Disposable {
   private disposed = false;
 
   constructor() {
+    const settings = readSettings();
+    this.dayPhase = getDayPhase(new Date(), celestialScheduleFromSettings(settings));
     this.weather = this.pickSeasonalWeather();
     this.scheduleWeatherTransition();
     this.scheduleWindUpdate();
@@ -63,6 +67,7 @@ export class WeatherManager implements vscode.Disposable {
 
   onSettingsChanged(settings: WeatherSettings): void {
     this.broadcast({ type: 'settings', settings });
+    this.refreshDayPhase();
   }
 
   dispose(): void {
@@ -118,7 +123,7 @@ export class WeatherManager implements vscode.Disposable {
 
   private pickSeasonalWeather(): WeatherState {
     const settings = readSettings();
-    const snow = isSnowEnabled(settings.snowSeason);
+    const snow = isSnowEnabled(settings.snowSeason, new Date(), winterDatesFromSettings(settings));
     let next = pickWeightedWeather(snow);
     if (snow && next === 'rain') {
       next = 'snow';
@@ -151,10 +156,18 @@ export class WeatherManager implements vscode.Disposable {
   }
 
   private updateDayPhase(): void {
-    const next = getDayPhase();
+    const settings = readSettings();
+    const next = getDayPhase(new Date(), celestialScheduleFromSettings(settings));
     if (next !== this.dayPhase) {
       this.dayPhase = next;
       this.broadcast({ type: 'dayPhase', dayPhase: this.dayPhase });
     }
+  }
+
+  refreshDayPhase(): void {
+    const settings = readSettings();
+    const next = getDayPhase(new Date(), celestialScheduleFromSettings(settings));
+    this.dayPhase = next;
+    this.broadcast({ type: 'dayPhase', dayPhase: this.dayPhase });
   }
 }
