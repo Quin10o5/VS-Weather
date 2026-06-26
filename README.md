@@ -14,7 +14,7 @@ Unique events to spice things up
 
 **In IDE**
 
-![In IDE](https://raw.githubusercontent.com/Quin10o5/Pixel-Weather/main/media/screenshots/full-ide.png)
+![In IDE demo](https://raw.githubusercontent.com/Quin10o5/Pixel-Weather/main/media/screenshots/demo.gif)
 
 **Rain and sun**
 
